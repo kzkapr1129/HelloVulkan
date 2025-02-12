@@ -19,7 +19,7 @@ $ make macos
 3. Hello Vulkanをビルドする
 ```
 $ cd <本リポジトリのプロジェクトフォルダ>
-$ mkdir build & cd build
+$ mkdir build && cd build
 $ cmake ..
 $ make
 ```
