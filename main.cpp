@@ -60,6 +60,39 @@ int main() {
     // キューを取得する
     vk::Queue graphicsQueue = device->getQueue(graphicsQueueFamilyIndex, 0);
 
+    vk::CommandPoolCreateInfo cmdPoolCreateInfo;
+    cmdPoolCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
+
+    // コマンドプールを作成する
+    vk::UniqueCommandPool cmdPool = device->createCommandPoolUnique(cmdPoolCreateInfo);
+
+    vk::CommandBufferAllocateInfo cmdBufAllocInfo;
+    cmdBufAllocInfo.commandPool = cmdPool.get();
+    cmdBufAllocInfo.commandBufferCount = 1;
+    cmdBufAllocInfo.level = vk::CommandBufferLevel::ePrimary;
+
+    // コマンドプールからコマンドバッファ(複数のコマンドをまとめるバッファ)を取得する
+    std::vector<vk::UniqueCommandBuffer> cmdBufs = device->allocateCommandBuffersUnique(cmdBufAllocInfo);
+
+    vk::CommandBufferBeginInfo cmdBeginInfo;
+    // コマンドを記録を開始する
+    cmdBufs[0]->begin(cmdBeginInfo);
+
+    // コマンドを記録
+
+    // コマンド記録を終了する
+    cmdBufs[0]->end();
+
+    vk::CommandBuffer submitCmdBuf[1] = { cmdBufs[0].get() };
+    vk::SubmitInfo submitInfo;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = submitCmdBuf;
+
+    // コマンドバッファをキューに送信する
+    graphicsQueue.submit({ submitInfo }, nullptr);
+
+    // キューがからになるまで待つ
+    graphicsQueue.waitIdle();
 
     return 0;
 }
