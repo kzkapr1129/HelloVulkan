@@ -94,6 +94,37 @@ int main() {
     // 画像の作成
     vk::UniqueImage image = device->createImageUnique(imgCreateInfo);
 
+    // 画像が要求するメモリサイズを取得する
+    vk::MemoryRequirements imgMemReq = device->getImageMemoryRequirements(image.get());
+
+    // デバイスが持っているメモリの種類を取得する
+    vk::PhysicalDeviceMemoryProperties memProps = physicalDevice.getMemoryProperties();
+
+    vk::MemoryAllocateInfo imgMemAllocInfo;
+    imgMemAllocInfo.allocationSize = imgMemReq.size;
+
+    // 利用可能なメモリを選択する
+    bool suitableMemoryTypeFound = false;
+    for (size_t i = 0; i < memProps.memoryTypeCount; i++) {
+        if (imgMemReq.memoryTypeBits & (1 << i)) {
+            // 一番最初にビットが立っているメモリを使用する
+            imgMemAllocInfo.memoryTypeIndex = i;
+            suitableMemoryTypeFound = true;
+            break;
+        }
+    }
+
+    if (!suitableMemoryTypeFound) {
+        std::cerr << "使用可能なメモリタイプがありません。" << std::endl;
+        return -1;
+    }
+
+    // デバイスメモリを確保する
+    vk::UniqueDeviceMemory imgMem = device->allocateMemoryUnique(imgMemAllocInfo);
+
+    // 画像のメモリを紐づける
+    device->bindImageMemory(image.get(), imgMem.get(), 0); // 第三引数の0はメモリの何バイト目から利用するかのアドレス
+
     vk::CommandBufferBeginInfo cmdBeginInfo;
     // コマンドを記録を開始する
     cmdBufs[0]->begin(cmdBeginInfo);
