@@ -74,6 +74,26 @@ int main() {
     // コマンドプールからコマンドバッファ(複数のコマンドをまとめるバッファ)を取得する
     std::vector<vk::UniqueCommandBuffer> cmdBufs = device->allocateCommandBuffersUnique(cmdBufAllocInfo);
 
+    // 画像の横幅
+    const uint32_t screenWidth = 640;
+    // 画像の高さ
+    const uint32_t screenHeight = 480;
+
+    vk::ImageCreateInfo imgCreateInfo;
+    imgCreateInfo.imageType = vk::ImageType::e2D; // 画像の次元(1〜3次元)
+    imgCreateInfo.extent = vk::Extent3D(screenWidth, screenHeight, 1); // 画像サイズ
+    imgCreateInfo.mipLevels = 1;
+    imgCreateInfo.arrayLayers = 1;
+    imgCreateInfo.format = vk::Format::eR8G8B8A8Unorm; // 画素のフォーマット
+    imgCreateInfo.tiling = vk::ImageTiling::eLinear;
+    imgCreateInfo.initialLayout = vk::ImageLayout::eUndefined;
+    imgCreateInfo.usage = vk::ImageUsageFlagBits::eColorAttachment;
+    imgCreateInfo.sharingMode = vk::SharingMode::eExclusive;
+    imgCreateInfo.samples = vk::SampleCountFlagBits::e1;
+
+    // 画像の作成
+    vk::UniqueImage image = device->createImageUnique(imgCreateInfo);
+
     vk::CommandBufferBeginInfo cmdBeginInfo;
     // コマンドを記録を開始する
     cmdBufs[0]->begin(cmdBeginInfo);
