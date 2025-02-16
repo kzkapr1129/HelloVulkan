@@ -22,7 +22,15 @@ $  ./fetchDependencies --macos
 $ make macos
 ```
 
-4. Hello Vulkanをビルドする
+4. GLFWをビルドする
+```
+$ cd glfw
+$ mkdir build && cd build
+$ cmake -DBUILD_SHARED_LIBS=ON ..
+$ make
+```
+
+5. Hello Vulkanをビルドする
 ```
 $ cd <本リポジトリのプロジェクトフォルダ>
 $ mkdir build && cd build
@@ -30,7 +38,7 @@ $ cmake ..
 $ make
 ```
 
-5. Hello Vulkanを実行する
+6. Hello Vulkanを実行する
 ```
-$ ./app
+$ ./app -s 1
 ```

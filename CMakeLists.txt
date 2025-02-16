@@ -13,8 +13,15 @@ find_library(VULKAN_LIBRARY NAMES MoltenVK PATHS "${VULKAN_ROOT}/dylib/macOS")
 
 set(CXXOPTS_ROOT "./cxxopts")
 
-include_directories(${VULKAN_ROOT}/include)
-include_directories(${CXXOPTS_ROOT}/include)
-include_directories(common)
-include_directories(cmd)
+set(GLFW_ROOT "./glfw")
+find_library(GLFW_LIBRARY NAMES glfw PATHS "${GLFW_ROOT}/build/src")
+
+include_directories(
+    ${VULKAN_ROOT}/include
+    ${CXXOPTS_ROOT}/include
+    ${GLFW_ROOT}/include
+    common
+    cmd)
+
 target_link_libraries(app PRIVATE ${VULKAN_LIBRARY})
+target_link_libraries(app PRIVATE ${GLFW_LIBRARY})
