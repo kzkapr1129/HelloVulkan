@@ -9,14 +9,20 @@ Vulkanの練習用プロジェクト
 $ git clone --recursive <本リポジトリ>
 ```
 
-2. MoltenVKをビルドする
+2. glslをspir-vに変換する
+```
+$ cd shader
+$ zsh conv.sh
+```
+
+3. MoltenVKをビルドする
 ```
 $ cd MoltenVK
 $  ./fetchDependencies --macos
 $ make macos
 ```
 
-3. Hello Vulkanをビルドする
+4. Hello Vulkanをビルドする
 ```
 $ cd <本リポジトリのプロジェクトフォルダ>
 $ mkdir build && cd build
@@ -24,7 +30,7 @@ $ cmake ..
 $ make
 ```
 
-4. Hello Vulkanを実行する
+5. Hello Vulkanを実行する
 ```
 $ ./app
 ```
