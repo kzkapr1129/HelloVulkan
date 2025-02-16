@@ -1,3 +1,6 @@
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h" // 画像書き出し用
+
 #include <vulkan/vulkan.hpp>
 #include <iostream>
 #include <vector>
@@ -108,7 +111,8 @@ int main() {
     // 利用可能なメモリを選択する
     bool suitableMemoryTypeFound = false;
     for (size_t i = 0; i < memProps.memoryTypeCount; i++) {
-        if (imgMemReq.memoryTypeBits & (1 << i)) {
+        if (imgMemReq.memoryTypeBits & (1 << i)  // メモリが利用可能なビットが立っているかをチェック
+                && (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eHostVisible)) {  // GPUを操作しているホストから参照できるメモリであるかをチェック
             // 一番最初にビットが立っているメモリを使用する
             imgMemAllocInfo.memoryTypeIndex = i;
             suitableMemoryTypeFound = true;
@@ -278,11 +282,58 @@ int main() {
     // パイプラインを作成する
     vk::UniquePipeline pipeline = device->createGraphicsPipelineUnique(nullptr, pipelineCreateInfo).value;
 
+    // 画像とパイプラインを関連付けるオブジェクト(イメージビュー)を用意する
+    vk::ImageViewCreateInfo imgViewCreateInfo;
+    imgViewCreateInfo.image = image.get();
+    imgViewCreateInfo.viewType = vk::ImageViewType::e2D;
+    imgViewCreateInfo.format = vk::Format::eR8G8B8A8Unorm;
+    imgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
+    imgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
+    imgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
+    imgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
+    imgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    imgViewCreateInfo.subresourceRange.baseMipLevel = 0;
+    imgViewCreateInfo.subresourceRange.levelCount = 1;
+    imgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+    imgViewCreateInfo.subresourceRange.layerCount = 1;
+
+    vk::UniqueImageView imgView = device->createImageViewUnique(imgViewCreateInfo);
+
+    vk::ImageView frameBufAttachments[1];
+    frameBufAttachments[0] = imgView.get();
+
+    // レンダーパスとイメージビューを関連づけるオブジェクト(フレームバッファ)を用意する
+    vk::FramebufferCreateInfo frameBufCreateInfo;
+    frameBufCreateInfo.width = screenWidth;
+    frameBufCreateInfo.height = screenHeight;
+    frameBufCreateInfo.layers = 1;
+    frameBufCreateInfo.renderPass = renderpass.get();
+    frameBufCreateInfo.attachmentCount = 1;
+    frameBufCreateInfo.pAttachments = frameBufAttachments;
+
+    // フレームバッファを作成する
+    vk::UniqueFramebuffer frameBuf = device->createFramebufferUnique(frameBufCreateInfo);
+
     vk::CommandBufferBeginInfo cmdBeginInfo;
     // コマンドを記録を開始する
     cmdBufs[0]->begin(cmdBeginInfo);
 
-    // コマンドを記録
+    vk::RenderPassBeginInfo renderpassBeginInfo;
+    renderpassBeginInfo.renderPass = renderpass.get();
+    renderpassBeginInfo.framebuffer = frameBuf.get();
+    renderpassBeginInfo.renderArea = vk::Rect2D({ 0,0 }, { screenWidth, screenHeight });
+    renderpassBeginInfo.clearValueCount = 0;
+    renderpassBeginInfo.pClearValues = nullptr;
+
+    // レンダーパスを開始する
+    cmdBufs[0]->beginRenderPass(renderpassBeginInfo, vk::SubpassContents::eInline);
+
+    // ここでサブパス0番の処理
+    cmdBufs[0]->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+    cmdBufs[0]->draw(3, 1, 0, 0);
+
+    // レンダーパスを終了する
+    cmdBufs[0]->endRenderPass();
 
     // コマンド記録を終了する
     cmdBufs[0]->end();
@@ -297,6 +348,13 @@ int main() {
 
     // キューがからになるまで待つ
     graphicsQueue.waitIdle();
+
+    // GPUのメモリをホストのメモリにマップする
+    void* imgData = device->mapMemory(imgMem.get(), 0, imgMemReq.size);
+    // 画像ファイルを書き出す
+    stbi_write_bmp("img.bmp", screenWidth, screenHeight, 4, imgData);
+    // マップしたメモリをアンマップする
+    device->unmapMemory(imgMem.get());
 
     return 0;
 }
