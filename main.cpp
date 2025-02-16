@@ -1,6 +1,8 @@
 #include <vulkan/vulkan.hpp>
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 
 int main() {
     vk::InstanceCreateInfo createInfo;
@@ -220,6 +222,45 @@ int main() {
 
     vk::UniquePipelineLayout pipelineLayout = device->createPipelineLayoutUnique(layoutCreateInfo);
 
+    size_t vertSpvFileSz = std::filesystem::file_size("../shader/shader.vert.spv");
+
+    std::ifstream vertSpvFile("../shader/shader.vert.spv", std::ios_base::binary);
+
+    std::vector<char> vertSpvFileData(vertSpvFileSz);
+    vertSpvFile.read(vertSpvFileData.data(), vertSpvFileSz);
+
+    vk::ShaderModuleCreateInfo vertShaderCreateInfo;
+    vertShaderCreateInfo.codeSize = vertSpvFileSz;
+    vertShaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(vertSpvFileData.data());
+
+    // バーテックスシェーダーモジュールを作成する
+    vk::UniqueShaderModule vertShader = device->createShaderModuleUnique(vertShaderCreateInfo);
+    std::cout << "done vert" << std::endl;
+
+    size_t fragSpvFileSz = std::filesystem::file_size("../shader/shader.frag.spv");
+
+    std::ifstream fragSpvFile("../shader/shader.frag.spv", std::ios_base::binary);
+
+    std::vector<char> fragSpvFileData(fragSpvFileSz);
+    fragSpvFile.read(fragSpvFileData.data(), fragSpvFileSz);
+
+    vk::ShaderModuleCreateInfo fragShaderCreateInfo;
+    fragShaderCreateInfo.codeSize = fragSpvFileSz;
+    fragShaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(fragSpvFileData.data());
+
+    // フラグメントシェーダーモジュールを作成
+    vk::UniqueShaderModule fragShader = device->createShaderModuleUnique(fragShaderCreateInfo);
+    std::cout << "done frag" << std::endl;
+
+    // パイプラインとシェーダーの関連付け用オブジェクトを用意する
+    vk::PipelineShaderStageCreateInfo shaderStage[2];
+    shaderStage[0].stage = vk::ShaderStageFlagBits::eVertex;
+    shaderStage[0].module = vertShader.get();
+    shaderStage[0].pName = "main";
+    shaderStage[1].stage = vk::ShaderStageFlagBits::eFragment;
+    shaderStage[1].module = fragShader.get();
+    shaderStage[1].pName = "main";
+
     // パイプラインの初期化オブジェクトを用意する
     vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
     pipelineCreateInfo.pViewportState = &viewportState;
@@ -231,8 +272,8 @@ int main() {
     pipelineCreateInfo.layout = pipelineLayout.get();
     pipelineCreateInfo.renderPass = renderpass.get();
     pipelineCreateInfo.subpass = 0;
-    pipelineCreateInfo.stageCount = 0;
-    pipelineCreateInfo.pStages = nullptr;
+    pipelineCreateInfo.stageCount = 2;
+    pipelineCreateInfo.pStages = shaderStage;
 
     // パイプラインを作成する
     vk::UniquePipeline pipeline = device->createGraphicsPipelineUnique(nullptr, pipelineCreateInfo).value;
