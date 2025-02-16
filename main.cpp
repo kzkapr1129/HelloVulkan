@@ -135,7 +135,7 @@ int main() {
     vk::AttachmentDescription attachments[1];
     attachments[0].format = vk::Format::eR8G8B8A8Unorm;
     attachments[0].samples = vk::SampleCountFlagBits::e1;
-    attachments[0].loadOp = vk::AttachmentLoadOp::eDontCare;
+    attachments[0].loadOp = vk::AttachmentLoadOp::eClear; // eClear=>glClear()相当を実施する
     attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
     attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
     attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
@@ -318,12 +318,19 @@ int main() {
     // コマンドを記録を開始する
     cmdBufs[0]->begin(cmdBeginInfo);
 
+    // 画像クリアの色を指定する
+    vk::ClearValue clearVal[1];
+    clearVal[0].color.float32[0] = 0.0f; // R
+    clearVal[0].color.float32[1] = 0.0f; // G
+    clearVal[0].color.float32[2] = 0.0f; // B
+    clearVal[0].color.float32[3] = 1.0f; // A
+
     vk::RenderPassBeginInfo renderpassBeginInfo;
     renderpassBeginInfo.renderPass = renderpass.get();
     renderpassBeginInfo.framebuffer = frameBuf.get();
     renderpassBeginInfo.renderArea = vk::Rect2D({ 0,0 }, { screenWidth, screenHeight });
-    renderpassBeginInfo.clearValueCount = 0;
-    renderpassBeginInfo.pClearValues = nullptr;
+    renderpassBeginInfo.clearValueCount = 1;
+    renderpassBeginInfo.pClearValues = clearVal; // クリア色を指定する
 
     // レンダーパスを開始する
     cmdBufs[0]->beginRenderPass(renderpassBeginInfo, vk::SubpassContents::eInline);
