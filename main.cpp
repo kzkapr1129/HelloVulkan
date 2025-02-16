@@ -125,6 +125,40 @@ int main() {
     // 画像のメモリを紐づける
     device->bindImageMemory(image.get(), imgMem.get(), 0); // 第三引数の0はメモリの何バイト目から利用するかのアドレス
 
+    // アタッチメントの初期化オブジェクトの用意 (アタッチメント=サブパスで利用するテクスチャだったり、描画対象の画像として利用される)
+    vk::AttachmentDescription attachments[1];
+    attachments[0].format = vk::Format::eR8G8B8A8Unorm;
+    attachments[0].samples = vk::SampleCountFlagBits::e1;
+    attachments[0].loadOp = vk::AttachmentLoadOp::eDontCare;
+    attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
+    attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+    attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+    attachments[0].initialLayout = vk::ImageLayout::eUndefined;
+    attachments[0].finalLayout = vk::ImageLayout::eGeneral;
+
+    // アタッチメントとサブパスの関連付けオブジェクトの準備
+    vk::AttachmentReference subpass0_attachmentRefs[1];
+    subpass0_attachmentRefs[0].attachment = 0;
+    subpass0_attachmentRefs[0].layout = vk::ImageLayout::eColorAttachmentOptimal;
+
+    // サブパスの初期化オブジェクトの用意 (レンダーパスを構成する要素。一つ以上指定する)
+    vk::SubpassDescription subpasses[1];
+    subpasses[0].pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+    subpasses[0].colorAttachmentCount = 1;
+    subpasses[0].pColorAttachments = subpass0_attachmentRefs; // サブパスが利用するアタッチメントを指定する
+
+    // レンダーパスの初期化オブジェクトの用意
+    vk::RenderPassCreateInfo renderpassCreateInfo;
+    renderpassCreateInfo.attachmentCount = 1;
+    renderpassCreateInfo.pAttachments = attachments;
+    renderpassCreateInfo.subpassCount = 1;
+    renderpassCreateInfo.pSubpasses = subpasses;
+    renderpassCreateInfo.dependencyCount = 0;
+    renderpassCreateInfo.pDependencies = nullptr;
+
+    // レンダーパスを作成する
+    vk::UniqueRenderPass renderpass = device->createRenderPassUnique(renderpassCreateInfo);
+
     vk::CommandBufferBeginInfo cmdBeginInfo;
     // コマンドを記録を開始する
     cmdBufs[0]->begin(cmdBeginInfo);
