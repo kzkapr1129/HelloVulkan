@@ -159,6 +159,84 @@ int main() {
     // レンダーパスを作成する
     vk::UniqueRenderPass renderpass = device->createRenderPassUnique(renderpassCreateInfo);
 
+    // ビューポートの初期化オブジェクトの用意
+    vk::Viewport viewports[1];
+    viewports[0].x = 0.0;
+    viewports[0].y = 0.0;
+    viewports[0].minDepth = 0.0;
+    viewports[0].maxDepth = 1.0;
+    viewports[0].width = screenWidth;
+    viewports[0].height = screenHeight;
+
+    vk::Rect2D scissors[1];
+    scissors[0].offset = vk::Offset2D{ 0, 0 };
+    scissors[0].extent = vk::Extent2D{ screenWidth, screenHeight };
+
+    vk::PipelineViewportStateCreateInfo viewportState;
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = viewports;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = scissors;
+
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly;
+    inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
+    inputAssembly.primitiveRestartEnable = false;
+
+    vk::PipelineRasterizationStateCreateInfo rasterizer;
+    rasterizer.depthClampEnable = false;
+    rasterizer.rasterizerDiscardEnable = false;
+    rasterizer.polygonMode = vk::PolygonMode::eFill;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = vk::CullModeFlagBits::eBack;
+    rasterizer.frontFace = vk::FrontFace::eClockwise;
+    rasterizer.depthBiasEnable = false;
+
+    vk::PipelineMultisampleStateCreateInfo multisample;
+    multisample.sampleShadingEnable = false;
+    multisample.rasterizationSamples = vk::SampleCountFlagBits::e1;
+
+    vk::PipelineColorBlendAttachmentState blendattachment[1];
+    blendattachment[0].colorWriteMask =
+        vk::ColorComponentFlagBits::eA |
+        vk::ColorComponentFlagBits::eR |
+        vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB;
+    blendattachment[0].blendEnable = false;
+
+    vk::PipelineColorBlendStateCreateInfo blend;
+    blend.logicOpEnable = false;
+    blend.attachmentCount = 1;
+    blend.pAttachments = blendattachment;
+
+    vk::PipelineLayoutCreateInfo layoutCreateInfo;
+    layoutCreateInfo.setLayoutCount = 0;
+    layoutCreateInfo.pSetLayouts = nullptr;
+
+    vk::UniquePipelineLayout pipelineLayout = device->createPipelineLayoutUnique(layoutCreateInfo);
+
+    // パイプラインの初期化オブジェクトを用意する
+    vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
+    pipelineCreateInfo.pViewportState = &viewportState;
+    pipelineCreateInfo.pVertexInputState = &vertexInputInfo;
+    pipelineCreateInfo.pInputAssemblyState = &inputAssembly;
+    pipelineCreateInfo.pRasterizationState = &rasterizer;
+    pipelineCreateInfo.pMultisampleState = &multisample;
+    pipelineCreateInfo.pColorBlendState = &blend;
+    pipelineCreateInfo.layout = pipelineLayout.get();
+    pipelineCreateInfo.renderPass = renderpass.get();
+    pipelineCreateInfo.subpass = 0;
+    pipelineCreateInfo.stageCount = 0;
+    pipelineCreateInfo.pStages = nullptr;
+
+    // パイプラインを作成する
+    vk::UniquePipeline pipeline = device->createGraphicsPipelineUnique(nullptr, pipelineCreateInfo).value;
+
     vk::CommandBufferBeginInfo cmdBeginInfo;
     // コマンドを記録を開始する
     cmdBufs[0]->begin(cmdBeginInfo);
