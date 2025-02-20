@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 
     std::map<int, std::function<std::unique_ptr<Command>()>> classRegistry = {
         {1, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new SimpleTriangle()); }},
-        {2, []() -> std::unique_ptr<Command>  { return std::unique_ptr<Command>(new SampleGLFW()); }},
+        {2, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new SampleGLFW()); }},
     };
     // サンプル番号から実行するコマンドクラスのインスタンスを取得
     auto res = classRegistry.find(parseResult["sample"].as<int>());
