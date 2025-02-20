@@ -3,6 +3,7 @@
 #include "sample_glfw.h"
 #include <cxxopts.hpp>
 #include <iostream>
+#include <memory>
 
 int main(int argc, char** argv) {
     cxxopts::Options options(argv[0], "Vulkan練習用アプリ");
@@ -28,9 +29,9 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    std::map<int, std::function<Command*()>> classRegistry = {
-        {1, []() -> Command* { return new SimpleTriangle(); }},
-        {2, []() -> Command* { return new SampleGLFW(); }},
+    std::map<int, std::function<std::unique_ptr<Command>()>> classRegistry = {
+        {1, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new SimpleTriangle()); }},
+        {2, []() -> std::unique_ptr<Command>  { return std::unique_ptr<Command>(new SampleGLFW()); }},
     };
     // サンプル番号から実行するコマンドクラスのインスタンスを取得
     auto res = classRegistry.find(parseResult["sample"].as<int>());
