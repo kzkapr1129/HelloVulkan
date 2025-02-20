@@ -1,3 +1,4 @@
 shader/*.spv
 /build
 /.vscode
+.DS_Store

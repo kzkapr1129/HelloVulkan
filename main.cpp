@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
     cxxopts::Options options(argv[0], "Vulkan練習用アプリ");
 
     options.add_options()
-        ("s,sample", "実行するサンプル番号を指定する", cxxopts::value<int>()->default_value("1"))
+        ("s,sample", "実行するサンプル番号を指定する", cxxopts::value<int>()->default_value("2"))
         ("h,help", "利用方法")
     ;
 
