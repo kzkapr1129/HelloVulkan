@@ -52,6 +52,19 @@ int SampleGLFW::execute() {
         return -1;
     }
 
+   // ウィンドウサイズ（論理ピクセル）
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    // フレームバッファサイズ（物理ピクセル）
+    int framebufferWidth, framebufferHeight;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+
+    // ピクセルのスケール係数
+    uint32_t scaleX = static_cast<uint32_t>(framebufferWidth) / windowWidth;
+    uint32_t scaleY = static_cast<uint32_t>(framebufferHeight) / windowHeight;
+    std::cout << "scaleX: " << scaleX << ", scaleY: " << scaleY << std::endl;
+
     VkSurfaceKHR c_surface;
     // サーフェースの作成
     auto result = glfwCreateWindowSurface(instance.get(), window, nullptr, &c_surface);
@@ -179,12 +192,12 @@ int SampleGLFW::execute() {
     viewports[0].y = 0.0;
     viewports[0].minDepth = 0.0;
     viewports[0].maxDepth = 1.0;
-    viewports[0].width = screenWidth;
-    viewports[0].height = screenHeight;
+    viewports[0].width = screenWidth*scaleX;
+    viewports[0].height = screenHeight*scaleY;
 
     vk::Rect2D scissors[1];
     scissors[0].offset = vk::Offset2D{ 0, 0 };
-    scissors[0].extent = vk::Extent2D{ screenWidth, screenHeight };
+    scissors[0].extent = vk::Extent2D{ screenWidth*scaleX, screenHeight*scaleY };
 
     vk::PipelineViewportStateCreateInfo viewportState;
     viewportState.viewportCount = 1;
@@ -409,7 +422,7 @@ int SampleGLFW::execute() {
         vk::RenderPassBeginInfo renderpassBeginInfo;
         renderpassBeginInfo.renderPass = renderpass.get();
         renderpassBeginInfo.framebuffer = swapchainFramebufs[imgIndex].get();
-        renderpassBeginInfo.renderArea = vk::Rect2D({ 0,0 }, { screenWidth, screenHeight });
+        renderpassBeginInfo.renderArea = vk::Rect2D({ 0,0 }, { screenWidth*scaleX, screenHeight*scaleY });
         renderpassBeginInfo.clearValueCount = 1;
         renderpassBeginInfo.pClearValues = clearVal;
 
