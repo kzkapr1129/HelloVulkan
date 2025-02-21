@@ -47,7 +47,7 @@ int SampleGLFW::execute() {
     if (!window) {
         const char* err;
         glfwGetError(&err);
-        std::cout << "(glfwCreateWindow)" << err << std::endl;
+        std::cout << err << std::endl;
         glfwTerminate();
         return -1;
     }
@@ -79,7 +79,8 @@ int SampleGLFW::execute() {
 
         for (size_t j = 0; j < queueProps.size(); j++) {
             // グラフィックキューがサポートしているか確認
-            if (queueProps[j].queueFlags & vk::QueueFlagBits::eGraphics) {
+            if (queueProps[j].queueFlags & vk::QueueFlagBits::eGraphics &&
+                physicalDevices[i].getSurfaceSupportKHR(j, surface.get())) {
                 existsGraphicsQueue = true;
                 graphicsQueueFamilyIndex = j;
                 break;
@@ -117,6 +118,7 @@ int SampleGLFW::execute() {
     vk::DeviceCreateInfo devCreateInfo;
     // 物理デバイスで使用する拡張機能として、スワップチェーンを指定
     auto devRequiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
     devCreateInfo.enabledExtensionCount = devRequiredExtensions.size();
     devCreateInfo.ppEnabledExtensionNames = devRequiredExtensions.begin();
 
@@ -409,6 +411,20 @@ int SampleGLFW::execute() {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = submitCmdBuf;
         graphicsQueue.submit({ submitInfo }, nullptr);
+
+        graphicsQueue.waitIdle();
+
+        vk::PresentInfoKHR presentInfo;
+
+        auto presentSwapchains = { swapchain.get() };
+        auto imgIndices = { imgIndex };
+
+        presentInfo.swapchainCount = presentSwapchains.size();
+        presentInfo.pSwapchains = presentSwapchains.begin();
+        presentInfo.pImageIndices = imgIndices.begin();
+
+        // プレゼンテーション(ウインドウに画像を表示)のコマンドをGPUに送信する
+        graphicsQueue.presentKHR(presentInfo);
 
         graphicsQueue.waitIdle();
     }
