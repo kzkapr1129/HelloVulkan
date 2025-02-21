@@ -139,35 +139,14 @@ int SampleGLFW::execute() {
     // グラフィックキューの取得
     vk::Queue graphicsQueue = device->getQueue(graphicsQueueFamilyIndex, 0);
 
-    vk::SurfaceCapabilitiesKHR surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface.get());
     std::vector<vk::SurfaceFormatKHR> surfaceFormats = physicalDevice.getSurfaceFormatsKHR(surface.get());
     std::vector<vk::PresentModeKHR> surfacePresentModes = physicalDevice.getSurfacePresentModesKHR(surface.get());
 
     vk::SurfaceFormatKHR swapchainFormat = surfaceFormats[0];
     vk::PresentModeKHR swapchainPresentMode = surfacePresentModes[0];
 
-    vk::SwapchainCreateInfoKHR swapchainCreateInfo;
-    // 画像の出力先となるサーフェースを指定
-    swapchainCreateInfo.surface = surface.get();
-    swapchainCreateInfo.minImageCount = surfaceCapabilities.minImageCount + 1; // 2枚以上の画像を使用することを宣言する (ダブルバッファ)
-    swapchainCreateInfo.imageFormat = swapchainFormat.format; // 画像フォーマット
-    swapchainCreateInfo.imageColorSpace = swapchainFormat.colorSpace;
-    swapchainCreateInfo.imageExtent = surfaceCapabilities.currentExtent; // 画像サイズ
-    swapchainCreateInfo.imageArrayLayers = 1;
-    swapchainCreateInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
-    swapchainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
-    swapchainCreateInfo.preTransform = surfaceCapabilities.currentTransform;
-    swapchainCreateInfo.presentMode = swapchainPresentMode;
-    swapchainCreateInfo.clipped = VK_TRUE;
-
-    // スワップチェーン(所謂ダブルバッファのこと。ただし、画像は二枚固定ではくminImageCountに応じて増やせる)の作成
-    vk::UniqueSwapchainKHR swapchain = device->createSwapchainKHRUnique(swapchainCreateInfo);
-
-    // スワップチェーンから画像を取得
-    std::vector<vk::Image> swapchainImages = device->getSwapchainImagesKHR(swapchain.get());
-
     vk::AttachmentDescription attachments[1];
-    attachments[0].format = swapchainFormat.format; // スワップチェーンと同じフォーマットを指定する
+    attachments[0].format = swapchainFormat.format;
     attachments[0].samples = vk::SampleCountFlagBits::e1;
     attachments[0].loadOp = vk::AttachmentLoadOp::eClear;
     attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
@@ -304,42 +283,75 @@ int SampleGLFW::execute() {
 
     vk::UniquePipeline pipeline = device->createGraphicsPipelineUnique(nullptr, pipelineCreateInfo).value;
 
-    std::vector<vk::UniqueImageView> swapchainImageViews(swapchainImages.size());
+    vk::UniqueSwapchainKHR swapchain;
+    std::vector<vk::Image> swapchainImages;
+    std::vector<vk::UniqueImageView> swapchainImageViews;
+    std::vector<vk::UniqueFramebuffer> swapchainFramebufs;
 
-    for (size_t i = 0; i < swapchainImages.size(); i++) {
-        vk::ImageViewCreateInfo imgViewCreateInfo;
-        imgViewCreateInfo.image = swapchainImages[i];
-        imgViewCreateInfo.viewType = vk::ImageViewType::e2D;
-        imgViewCreateInfo.format = swapchainFormat.format;
-        imgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        imgViewCreateInfo.subresourceRange.baseMipLevel = 0;
-        imgViewCreateInfo.subresourceRange.levelCount = 1;
-        imgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-        imgViewCreateInfo.subresourceRange.layerCount = 1;
+    auto recreateSwapchain = [&](){
+        swapchainFramebufs.clear();
+        swapchainImageViews.clear();
+        swapchainImages.clear();
+        swapchain.reset();
 
-        swapchainImageViews[i] = device->createImageViewUnique(imgViewCreateInfo);
-    }
+        vk::SurfaceCapabilitiesKHR surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface.get());
 
-    std::vector<vk::UniqueFramebuffer> swapchainFramebufs(swapchainImages.size());
+        vk::SwapchainCreateInfoKHR swapchainCreateInfo;
+        swapchainCreateInfo.surface = surface.get();
+        swapchainCreateInfo.minImageCount = surfaceCapabilities.minImageCount + 1;
+        swapchainCreateInfo.imageFormat = swapchainFormat.format;
+        swapchainCreateInfo.imageColorSpace = swapchainFormat.colorSpace;
+        swapchainCreateInfo.imageExtent = surfaceCapabilities.currentExtent;
+        swapchainCreateInfo.imageArrayLayers = 1;
+        swapchainCreateInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+        swapchainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
+        swapchainCreateInfo.preTransform = surfaceCapabilities.currentTransform;
+        swapchainCreateInfo.presentMode = swapchainPresentMode;
+        swapchainCreateInfo.clipped = VK_TRUE;
 
-    for (size_t i = 0; i < swapchainImages.size(); i++) {
-        vk::ImageView frameBufAttachments[1];
-        frameBufAttachments[0] = swapchainImageViews[i].get();
+        swapchain = device->createSwapchainKHRUnique(swapchainCreateInfo);
 
-        vk::FramebufferCreateInfo frameBufCreateInfo;
-        frameBufCreateInfo.width = surfaceCapabilities.currentExtent.width;
-        frameBufCreateInfo.height = surfaceCapabilities.currentExtent.height;
-        frameBufCreateInfo.layers = 1;
-        frameBufCreateInfo.renderPass = renderpass.get();
-        frameBufCreateInfo.attachmentCount = 1;
-        frameBufCreateInfo.pAttachments = frameBufAttachments;
+        swapchainImages = device->getSwapchainImagesKHR(swapchain.get());
 
-        swapchainFramebufs[i] = device->createFramebufferUnique(frameBufCreateInfo);
-    }
+        swapchainImageViews.resize(swapchainImages.size());
+
+        for (size_t i = 0; i < swapchainImages.size(); i++) {
+            vk::ImageViewCreateInfo imgViewCreateInfo;
+            imgViewCreateInfo.image = swapchainImages[i];
+            imgViewCreateInfo.viewType = vk::ImageViewType::e2D;
+            imgViewCreateInfo.format = swapchainFormat.format;
+            imgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
+            imgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
+            imgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
+            imgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
+            imgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            imgViewCreateInfo.subresourceRange.baseMipLevel = 0;
+            imgViewCreateInfo.subresourceRange.levelCount = 1;
+            imgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+            imgViewCreateInfo.subresourceRange.layerCount = 1;
+
+            swapchainImageViews[i] = device->createImageViewUnique(imgViewCreateInfo);
+        }
+
+        swapchainFramebufs.resize(swapchainImages.size());
+
+        for (size_t i = 0; i < swapchainImages.size(); i++) {
+            vk::ImageView frameBufAttachments[1];
+            frameBufAttachments[0] = swapchainImageViews[i].get();
+
+            vk::FramebufferCreateInfo frameBufCreateInfo;
+            frameBufCreateInfo.width = surfaceCapabilities.currentExtent.width;
+            frameBufCreateInfo.height = surfaceCapabilities.currentExtent.height;
+            frameBufCreateInfo.layers = 1;
+            frameBufCreateInfo.renderPass = renderpass.get();
+            frameBufCreateInfo.attachmentCount = 1;
+            frameBufCreateInfo.pAttachments = frameBufAttachments;
+
+            swapchainFramebufs[i] = device->createFramebufferUnique(frameBufCreateInfo);
+        }
+    };
+
+    recreateSwapchain();
 
     vk::CommandPoolCreateInfo cmdPoolCreateInfo;
     cmdPoolCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
@@ -355,10 +367,10 @@ int SampleGLFW::execute() {
 
     vk::SemaphoreCreateInfo semaphoreCreateInfo;
 
-     vk::UniqueSemaphore swapchainImgSemaphore, imgRenderedSemaphore;
+    vk::UniqueSemaphore swapchainImgSemaphore, imgRenderedSemaphore;
     swapchainImgSemaphore = device->createSemaphoreUnique(semaphoreCreateInfo);
     imgRenderedSemaphore = device->createSemaphoreUnique(semaphoreCreateInfo);
-    
+
     vk::FenceCreateInfo fenceCreateInfo;
     fenceCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
@@ -368,13 +380,19 @@ int SampleGLFW::execute() {
         glfwPollEvents();
 
         device->waitForFences({ imgRenderedFence.get()}, VK_TRUE, UINT64_MAX);
-        device->resetFences({ imgRenderedFence.get() });
 
         vk::ResultValue acquireImgResult = device->acquireNextImageKHR(swapchain.get(), 1'000'000'000, swapchainImgSemaphore.get());
+        if(acquireImgResult.result == vk::Result::eSuboptimalKHR || acquireImgResult.result == vk::Result::eErrorOutOfDateKHR) {
+            std::cerr << "スワップチェーンを再作成します。" << std::endl;
+            recreateSwapchain();
+            continue;
+        }
         if (acquireImgResult.result != vk::Result::eSuccess) {
-            std::cerr << "次フレームの要求に失敗しました。" << std::endl;
+            std::cerr << "次フレームの取得に失敗しました。" << std::endl;
             return -1;
         }
+        device->resetFences({ imgRenderedFence.get() });
+
         uint32_t imgIndex = acquireImgResult.value;
 
         cmdBufs[0]->reset();
