@@ -353,32 +353,30 @@ int SampleGLFW::execute() {
     std::vector<vk::UniqueCommandBuffer> cmdBufs =
         device->allocateCommandBuffersUnique(cmdBufAllocInfo);
 
-    vk::FenceCreateInfo fenceCreateInfo;
-    vk::UniqueFence swapchainImgFence = device->createFenceUnique(fenceCreateInfo);
+    vk::SemaphoreCreateInfo semaphoreCreateInfo;
 
-    std::cout << "wait for close ..." << std::endl;
+     vk::UniqueSemaphore swapchainImgSemaphore, imgRenderedSemaphore;
+    swapchainImgSemaphore = device->createSemaphoreUnique(semaphoreCreateInfo);
+    imgRenderedSemaphore = device->createSemaphoreUnique(semaphoreCreateInfo);
+    
+    vk::FenceCreateInfo fenceCreateInfo;
+    fenceCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+
+    vk::UniqueFence imgRenderedFence = device->createFenceUnique(fenceCreateInfo);
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        device->resetFences({ swapchainImgFence.get() });
+        device->waitForFences({ imgRenderedFence.get()}, VK_TRUE, UINT64_MAX);
+        device->resetFences({ imgRenderedFence.get() });
 
-        // スワップチェーンから次の画像を取得する (タイムアウト時間の単位 1'000'000'000ナノ秒=>1秒)
-        vk::ResultValue acquireImgResult = device->acquireNextImageKHR(swapchain.get(), 1'000'000'000, {}, swapchainImgFence.get());
+        vk::ResultValue acquireImgResult = device->acquireNextImageKHR(swapchain.get(), 1'000'000'000, swapchainImgSemaphore.get());
         if (acquireImgResult.result != vk::Result::eSuccess) {
-            std::cerr << "次フレームの取得に失敗しました。" << std::endl;
+            std::cerr << "次フレームの要求に失敗しました。" << std::endl;
             return -1;
         }
         uint32_t imgIndex = acquireImgResult.value;
 
-        if (device->waitForFences({ swapchainImgFence.get() }, VK_TRUE, 1'000'000'000) != vk::Result::eSuccess) {
-            std::cerr << "次フレームの取得に失敗しました。" << std::endl;
-            return -1;
-        }
-
-        /**
-         * スワップチェーンによって画像が切り替わるため、
-         * コマンドバッファをリセットして記録し直す
-         */
         cmdBufs[0]->reset();
 
         vk::CommandBufferBeginInfo cmdBeginInfo;
@@ -410,9 +408,18 @@ int SampleGLFW::execute() {
         vk::SubmitInfo submitInfo;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = submitCmdBuf;
-        graphicsQueue.submit({ submitInfo }, nullptr);
 
-        graphicsQueue.waitIdle();
+        vk::Semaphore renderwaitSemaphores[] = { swapchainImgSemaphore.get() };
+        vk::PipelineStageFlags renderwaitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = renderwaitSemaphores;
+        submitInfo.pWaitDstStageMask = renderwaitStages;
+
+        vk::Semaphore renderSignalSemaphores[] = { imgRenderedSemaphore.get() };
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = renderSignalSemaphores;
+
+        graphicsQueue.submit({ submitInfo }, imgRenderedFence.get());
 
         vk::PresentInfoKHR presentInfo;
 
@@ -423,12 +430,14 @@ int SampleGLFW::execute() {
         presentInfo.pSwapchains = presentSwapchains.begin();
         presentInfo.pImageIndices = imgIndices.begin();
 
-        // プレゼンテーション(ウインドウに画像を表示)のコマンドをGPUに送信する
-        graphicsQueue.presentKHR(presentInfo);
+        vk::Semaphore presenWaitSemaphores[] = { imgRenderedSemaphore.get() };
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = presenWaitSemaphores;
 
-        graphicsQueue.waitIdle();
+        graphicsQueue.presentKHR(presentInfo);
     }
 
+    graphicsQueue.waitIdle();
     glfwTerminate();
     return 0;
 }
