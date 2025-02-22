@@ -11,14 +11,23 @@
 const uint32_t screenWidth = 640;
 const uint32_t screenHeight = 480;
 
-struct Vertex {
+struct Vec2 {
     float x, y;
 };
 
+struct Vec3 {
+    float x, y, z;
+};
+
+struct Vertex {
+    Vec2 pos;
+    Vec3 color;
+};
+
 std::vector<Vertex> vertices = {
-    Vertex{ 0.0f, -0.5f },
-    Vertex{ 0.5f,  0.5f },
-    Vertex{-0.5f,  0.5f },
+    Vertex{ {0.0f, -0.5f}, {1, 0, 0} },
+    Vertex{ {0.5f,  0.5f}, {0, 1, 0} },
+    Vertex{ {-0.5f, 0.5f}, {0, 0, 1} },
 };
 
 int InputData::execute() {
@@ -230,16 +239,20 @@ int InputData::execute() {
     vertexBindingDescription[0].stride = sizeof(Vertex);
     vertexBindingDescription[0].inputRate = vk::VertexInputRate::eVertex;
 
-    vk::VertexInputAttributeDescription vertexInputDescription[1];
+    vk::VertexInputAttributeDescription vertexInputDescription[2];
     vertexInputDescription[0].binding = 0;
-    vertexInputDescription[0].location = 0; // シェーダで指定したlocationと合わせる
-    vertexInputDescription[0].format = vk::Format::eR32G32Sfloat; // R32=>1次元目が32bit, G32=>2次元目が32bit, S=>Signed, float=>float型
-    vertexInputDescription[0].offset = 0;
+    vertexInputDescription[0].location = 0;
+    vertexInputDescription[0].format = vk::Format::eR32G32Sfloat;
+    vertexInputDescription[0].offset = offsetof(Vertex, pos);
+    vertexInputDescription[1].binding = 0;
+    vertexInputDescription[1].location = 1;
+    vertexInputDescription[1].format = vk::Format::eR32G32B32Sfloat;
+    vertexInputDescription[1].offset = offsetof(Vertex, color);
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
-    vertexInputInfo.vertexBindingDescriptionCount = std::size(vertexBindingDescription);
+    vertexInputInfo.vertexBindingDescriptionCount = std::size(vertexBindingDescription); // == 1
     vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = std::size(vertexInputDescription);
+    vertexInputInfo.vertexAttributeDescriptionCount = std::size(vertexInputDescription); // == 2
     vertexInputInfo.pVertexAttributeDescriptions = vertexInputDescription;
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly;
