@@ -38,15 +38,7 @@ GLFWbool _glfwInitVulkan(int mode)
             _glfw.vk.handle = _glfwLoadLocalVulkanLoaderCocoa();
 ```
 
-5. GLFWをビルドする
-```
-$ cd glfw
-$ mkdir build && cd build
-$ cmake -DBUILD_SHARED_LIBS=ON ..
-$ make
-```
-
-6. Hello Vulkanをビルドする
+5. Hello Vulkanをビルドする
 ```
 $ cd <本リポジトリのプロジェクトフォルダ>
 $ mkdir build && cd build
@@ -54,7 +46,7 @@ $ cmake ..
 $ make
 ```
 
-7. Hello Vulkanを実行する
+6. Hello Vulkanを実行する
 ```
 $ ./app -s 1
 ```
