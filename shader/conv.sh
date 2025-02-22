@@ -12,5 +12,7 @@ fi
 
 glslc -fshader-stage=vertex vert.glsl -o shader.vert.spv
 glslc -fshader-stage=fragment frag.glsl -o shader.frag.spv
+glslc -fshader-stage=vertex vert2.glsl -o shader.vert2.spv
+glslc -fshader-stage=fragment frag2.glsl -o shader.frag2.spv
 
 echo "done"
