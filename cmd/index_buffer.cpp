@@ -1,11 +1,9 @@
-#include "input_data.h"
+#include "index_buffer.h"
 #include <iostream>
-#include <vulkan/vulkan.hpp> // vulkanのインクルードが先
-#include <GLFW/glfw3.h>
 #include <fstream>
 #include <filesystem>
-#include <vector>
-#include <cstring>
+#include <vulkan/vulkan.hpp>
+#include <GLFW/glfw3.h>
 
 const uint32_t screenWidth = 640;
 const uint32_t screenHeight = 480;
@@ -24,12 +22,16 @@ struct Vertex {
 };
 
 static std::vector<Vertex> vertices = {
-    Vertex{ {0.0f, -0.5f}, {1, 0, 0} },
-    Vertex{ {0.5f,  0.5f}, {0, 1, 0} },
-    Vertex{ {-0.5f, 0.5f}, {0, 0, 1} },
+    Vertex{ Vec2{-0.5f, -0.5f }, Vec3{ 0.0, 0.0, 1.0 } },
+    Vertex{ Vec2{ 0.5f,  0.5f }, Vec3{ 0.0, 1.0, 0.0 } },
+    Vertex{ Vec2{-0.5f,  0.5f }, Vec3{ 1.0, 0.0, 0.0 } },
+    Vertex{ Vec2{ 0.5f, -0.5f }, Vec3{ 1.0, 1.0, 1.0 } },
 };
 
-int InputData::execute() {
+static std::vector<uint16_t> indices = { 0, 1, 2, 1, 0, 3 };
+
+
+int IndexBuffer::execute() {
     if (!glfwInit())
         return -1;
 
@@ -128,26 +130,24 @@ int InputData::execute() {
 
     vk::Queue graphicsQueue = device->getQueue(graphicsQueueFamilyIndex, 0);
 
-    // 頂点座標のデータをシェーダーに送るためのバッファを作成
+    vk::PhysicalDeviceMemoryProperties memProps = physicalDevice.getMemoryProperties();
+
     vk::BufferCreateInfo vertBufferCreateInfo;
     vertBufferCreateInfo.size = sizeof(Vertex) * vertices.size();
     vertBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
     vertBufferCreateInfo.sharingMode = vk::SharingMode::eExclusive;
 
-    vk::PhysicalDeviceMemoryProperties memProps = physicalDevice.getMemoryProperties();
-
     vk::UniqueBuffer vertexBuf = device->createBufferUnique(vertBufferCreateInfo);
 
-    // デバイスメモリのタイプや必要なサイズを取得する
     vk::MemoryRequirements vertexBufMemReq = device->getBufferMemoryRequirements(vertexBuf.get());
-
+        
     vk::MemoryAllocateInfo vertexBufMemAllocInfo;
     vertexBufMemAllocInfo.allocationSize = vertexBufMemReq.size;
 
     bool suitableMemoryTypeFound = false;
     for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
         if (vertexBufMemReq.memoryTypeBits & (1 << i) &&
-                (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eHostVisible)) { // ホスト側から書き込みが行えるメモリか確認する
+            (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eHostVisible)) {
             vertexBufMemAllocInfo.memoryTypeIndex = i;
             suitableMemoryTypeFound = true;
             break;
@@ -160,13 +160,10 @@ int InputData::execute() {
 
     vk::UniqueDeviceMemory vertexBufMemory = device->allocateMemoryUnique(vertexBufMemAllocInfo);
 
-    // 頂点バッファとデバイスメモリを関連付ける
     device->bindBufferMemory(vertexBuf.get(), vertexBufMemory.get(), 0);
 
-    // メモリマッピングを行う
     void* vertexBufMem = device->mapMemory(vertexBufMemory.get(), 0, sizeof(Vertex) * vertices.size());
 
-    // メモリに頂点データをコピーする
     std::memcpy(vertexBufMem, vertices.data(), sizeof(Vertex) * vertices.size());
 
     vk::MappedMemoryRange flushMemoryRange;
@@ -174,11 +171,51 @@ int InputData::execute() {
     flushMemoryRange.offset = 0;
     flushMemoryRange.size = sizeof(Vertex) * vertices.size();
 
-    // 書き込んだメモリをデバイスメモリに反映させる
     device->flushMappedMemoryRanges({ flushMemoryRange });
 
-    // メモリマッピングを解除する
     device->unmapMemory(vertexBufMemory.get());
+
+    vk::BufferCreateInfo indexBufferCreateInfo;
+    indexBufferCreateInfo.size = sizeof(uint16_t) * indices.size();
+    indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer; // インデックスバッファを指定
+    indexBufferCreateInfo.sharingMode = vk::SharingMode::eExclusive;
+
+    vk::UniqueBuffer indexBuf = device->createBufferUnique(indexBufferCreateInfo);
+
+    vk::MemoryRequirements indexBufMemReq = device->getBufferMemoryRequirements(indexBuf.get());
+
+    vk::MemoryAllocateInfo indexBufMemAllocInfo;
+    indexBufMemAllocInfo.allocationSize = indexBufMemReq.size;
+
+    suitableMemoryTypeFound = false;
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
+        if (indexBufMemReq.memoryTypeBits & (1 << i) &&
+            (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eHostVisible)) {
+            indexBufMemAllocInfo.memoryTypeIndex = i;
+            suitableMemoryTypeFound = true;
+            break;
+        }
+    }
+    if (!suitableMemoryTypeFound) {
+        std::cerr << "適切なメモリタイプが存在しません。" << std::endl;
+        return -1;
+    }
+
+    vk::UniqueDeviceMemory indexBufMemory = device->allocateMemoryUnique(indexBufMemAllocInfo);
+
+    device->bindBufferMemory(indexBuf.get(), indexBufMemory.get(), 0);
+
+    void* indexBufMem = device->mapMemory(indexBufMemory.get(), 0, sizeof(uint16_t) * indices.size());
+
+    std::memcpy(indexBufMem, indices.data(), sizeof(uint16_t) * indices.size());
+
+    flushMemoryRange.memory = indexBufMemory.get();
+    flushMemoryRange.offset = 0;
+    flushMemoryRange.size = sizeof(uint16_t) * indices.size();
+
+    device->flushMappedMemoryRanges({ flushMemoryRange });
+
+    device->unmapMemory(indexBufMemory.get());
 
     std::vector<vk::SurfaceFormatKHR> surfaceFormats = physicalDevice.getSurfaceFormatsKHR(surface.get());
     std::vector<vk::PresentModeKHR> surfacePresentModes = physicalDevice.getSurfacePresentModesKHR(surface.get());
@@ -249,9 +286,9 @@ int InputData::execute() {
     vertexInputDescription[1].offset = offsetof(Vertex, color);
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
-    vertexInputInfo.vertexBindingDescriptionCount = std::size(vertexBindingDescription); // == 1
+    vertexInputInfo.vertexBindingDescriptionCount = std::size(vertexBindingDescription);
     vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = std::size(vertexInputDescription); // == 2
+    vertexInputInfo.vertexAttributeDescriptionCount = std::size(vertexInputDescription);
     vertexInputInfo.pVertexAttributeDescriptions = vertexInputDescription;
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly;
@@ -472,8 +509,9 @@ int InputData::execute() {
         cmdBufs[0]->beginRenderPass(renderpassBeginInfo, vk::SubpassContents::eInline);
 
         cmdBufs[0]->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
-        cmdBufs[0]->bindVertexBuffers(0, { vertexBuf.get() }, { 0 }); // コマンドバッファに頂点バッファを結びつける
-        cmdBufs[0]->draw(3, 1, 0, 0);
+        cmdBufs[0]->bindVertexBuffers(0, { vertexBuf.get() }, { 0 });
+        cmdBufs[0]->bindIndexBuffer(indexBuf.get(), 0, vk::IndexType::eUint16); // インデックスバッファを使用した描画
+        cmdBufs[0]->drawIndexed(indices.size(), 1, 0, 0, 0);
 
         cmdBufs[0]->endRenderPass();
 

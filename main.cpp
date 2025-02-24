@@ -2,6 +2,7 @@
 #include "simple_triangle.h"
 #include "sample_glfw.h"
 #include "input_data.h"
+#include "index_buffer.h"
 #include <cxxopts.hpp>
 #include <iostream>
 #include <memory>
@@ -10,7 +11,7 @@ int main(int argc, char** argv) {
     cxxopts::Options options(argv[0], "Vulkan練習用アプリ");
 
     options.add_options()
-        ("s,sample", "実行するサンプル番号を指定する", cxxopts::value<int>()->default_value("3"))
+        ("s,sample", "実行するサンプル番号を指定する", cxxopts::value<int>()->default_value("4"))
         ("h,help", "利用方法")
     ;
 
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
         {1, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new SimpleTriangle()); }},
         {2, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new SampleGLFW()); }},
         {3, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new InputData()); }},
+        {4, []() -> std::unique_ptr<Command> { return std::unique_ptr<Command>(new IndexBuffer()); }},
     };
     // サンプル番号から実行するコマンドクラスのインスタンスを取得
     auto res = classRegistry.find(parseResult["sample"].as<int>());
